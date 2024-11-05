@@ -1,0 +1,95 @@
+---
+title: "Date Clustering Analysis"
+format: html
+editor: visual
+---
+
+# Setup
+```{r}
+library(nflfastR)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(tidyr)
+library(e1071)
+```
+
+
+# Data Exploration
+```{r}
+nfl_roster <- nflfastR::fast_scraper_roster(2020:2024) |>
+  dplyr::select(gsis_id, season, week, team, position, status, full_name, birth_date, game_type) |>
+  dplyr::mutate(birth_date = dplyr::coalesce(birth_date, as.Date("1970-01-01")),
+    birth_date_int = as.numeric(lubridate::as_datetime(birth_date)))
+
+nfl_schedule <- nflfastR::fast_scraper_schedules(2020:2024) |>
+  dplyr::select(game_id:weekday) |>
+  dplyr::mutate(gameday = lubridate::as_date(gameday),
+                game_date_int = as.numeric(lubridate::as_datetime(gameday)))
+```
+
+
+# Data Cluster Analysis
+```{r}
+# Roster data with known birthdays
+kmeans_results <- kmeans(nfl_roster$birth_date_int, centers = 5)
+nfl_roster$cluster <- kmeans_results$cluster
+kmeans_results$size
+
+# Visualize results
+ggplot2::ggplot(nfl_roster, aes(x = birth_date, fill = as.factor(cluster))) +
+  geom_histogram(binwidth = 30, position = "stack") +
+  labs(x = "Date", y = "Count", fill = "Cluster")
+```
+
+
+```{r}
+# NFL schedule
+kmeans_results <- kmeans(nfl_schedule$game_date_int, centers = 5)
+nfl_schedule$cluster <- kmeans_results$cluster
+kmeans_results$size
+
+# Visualize results
+ggplot2::ggplot(nfl_schedule, aes(x = gameday, fill = as.factor(cluster))) +
+  geom_histogram(binwidth = 30, position = "stack") +
+  labs(x = "Date", y = "Count", fill = "Cluster")
+```
+
+
+# Compare Dates
+```{r}
+# Standard Deviation
+sd(nfl_roster$birth_date, na.rm = TRUE)
+sd(nfl_schedule$gameday, na.rm = TRUE)
+
+
+# Skewedness
+e1071::skewness(nfl_roster$birth_date_int, na.rm = TRUE)
+e1071::skewness(nfl_schedule$game_date_int, na.rm = TRUE)
+
+
+# Interquartile range
+IQR(nfl_roster$birth_date, na.rm = TRUE)
+IQR(nfl_schedule$gameday, na.rm = TRUE)
+
+
+# KS test
+ks.test(
+  nfl_roster$birth_date_int,
+  nfl_schedule$game_date_int
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
